@@ -1,0 +1,72 @@
+{
+  "profiles": [
+    {
+      "id": "basico",
+      "name": "Funciones Básicas",
+      "buttons": [
+        {
+          "id": "playpause",
+          "label": "▶ / ⏸",
+          "size": "M",
+          "action": { "type": "media", "cmd": "toggle_play" }
+        },
+        {
+          "id": "nextsong",
+          "label": "⏭ Next",
+          "size": "S",
+          "action": { "type": "media", "cmd": "next" }
+        },
+        {
+          "id": "prevsong",
+          "label": "⏮ Prev",
+          "size": "S",
+          "action": { "type": "media", "cmd": "prev" }
+        },
+        {
+          "id": "volup",
+          "label": "🔊 Vol +",
+          "size": "L",
+          "action": { "type": "system", "cmd": "volume_up" }
+        },
+        {
+          "id": "voldown",
+          "label": "🔉 Vol -",
+          "size": "L",
+          "action": { "type": "system", "cmd": "volume_down" }
+        },
+        {
+          "id": "mute_system",
+          "label": "🔇 Mute",
+          "size": "M",
+          "action": { "type": "system", "cmd": "mute_toggle" }
+        },
+        {
+          "id": "mute_discord",
+          "label": "🎤 Discord Mute",
+          "size": "M",
+          "action": { "type": "hotkey", "keys": "^+m" }
+        },
+        {
+          "id": "open_browser",
+          "label": "🌐 Navegador",
+          "size": "M",
+          "action": {
+            "type": "macro",
+            "steps": [
+              { "type": "keys", "send": "⊞+R" },
+              { "type": "sleep", "sec": 0.3 },
+              { "type": "keys", "send": "chrome" },
+              { "type": "enter" }
+            ]
+          }
+        },
+        {
+          "id": "lock_pc",
+          "label": "🔒 Lock PC",
+          "size": "M",
+          "action": { "type": "hotkey", "keys": "#l" }
+        }
+      ]
+    }
+  ]
+}

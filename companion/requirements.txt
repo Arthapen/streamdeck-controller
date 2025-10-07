@@ -1,0 +1,4 @@
+websockets
+keyboard
+spotipy
+python-dotenv

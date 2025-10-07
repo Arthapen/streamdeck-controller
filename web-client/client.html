@@ -1,0 +1,103 @@
+<!doctype html><meta charset="utf-8">
+<title>Deck Lite</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin:16px }
+  .top { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px }
+  input { padding:8px; font-size:14px; min-width:260px }
+  .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px }
+  button { padding:24px; font-size:18px; border-radius:12px; border:1px solid #ddd; cursor:pointer }
+  #st { font-weight:600 }
+</style>
+
+<div class="top">
+  <input id="ip" placeholder="IP del PC (ej. 192.168.100.35)" />
+  <input id="token" placeholder="token" />
+  <button id="btnConnect">Conectar</button>
+  <span id="st">desconectado</span>
+</div>
+
+<div class="grid">
+  <button onclick="send({type:'spotify',cmd:'toggle_play'})">▶/⏸ (SP)</button>
+  <button onclick="send({type:'spotify',cmd:'next'})">⏭ (SP)</button>
+  <button onclick="send({type:'spotify',cmd:'prev'})">⏮ (SP)</button>
+  <button onclick="send({type:'system',cmd:'volume_up'})">Vol +</button>
+  <button onclick="send({type:'system',cmd:'volume_down'})">Vol −</button>
+  <button onclick="send({type:'system',cmd:'mute_toggle'})">Mute</button>
+</div>
+
+<script>
+let ws, hbTimer, retryTimer, tries = 0;
+const st = document.getElementById('st');
+const ipEl = document.getElementById('ip');
+const tkEl = document.getElementById('token');
+const btn = document.getElementById('btnConnect');
+
+// Cargar últimos valores
+ipEl.value = localStorage.getItem('deck_ip') || '';
+tkEl.value = localStorage.getItem('deck_token') || '';
+
+btn.onclick = () => {
+  localStorage.setItem('deck_ip', ipEl.value.trim());
+  localStorage.setItem('deck_token', tkEl.value.trim());
+  connect(true);
+};
+
+function connect(manual=false){
+  clearTimeout(retryTimer); clearInterval(hbTimer);
+  const ip = ipEl.value.trim(), token = tkEl.value.trim();
+  if(!ip || !token){ alert('Completá IP y token'); return; }
+
+  const url = `ws://${ip}:8765/?token=${encodeURIComponent(token)}`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    st.textContent = 'conectado';
+    tries = 0;
+    // Heartbeat cada 15s
+    hbTimer = setInterval(() => {
+      safeSend({type:'exec', action:{type:'ping'}});
+    }, 15000);
+  };
+
+  ws.onclose = () => {
+    st.textContent = 'desconectado';
+    clearInterval(hbTimer);
+    // Backoff exponencial (máx 15s)
+    const delay = Math.min(15000, 1000 * Math.pow(2, Math.min(5, tries++)));
+    retryTimer = setTimeout(() => connect(false), delay);
+  };
+
+  ws.onerror = () => {
+    st.textContent = 'error';
+  };
+
+  ws.onmessage = (ev) => {
+    // console.log('ACK:', ev.data);
+  };
+}
+
+function safeSend(payload){
+  try{
+    if(ws && ws.readyState === 1){
+      ws.send(JSON.stringify(payload));
+    }
+  }catch(_){}
+}
+
+function send(action){
+  if(!ws || ws.readyState!==1){ alert('No conectado'); return; }
+  ws.send(JSON.stringify({type:'exec', action}));
+}
+
+// Reintenta al volver al foco (por si el SO durmió la pestaña)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (!ws || ws.readyState !== 1)) {
+    connect(false);
+  }
+});
+
+// Si teníamos datos guardados, intentá conectar automáticamente al cargar
+if(ipEl.value && tkEl.value){
+  connect(false);
+}
+</script>

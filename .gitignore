@@ -1,0 +1,16 @@
+# Python / venv
+companion/.venv/
+__pycache__/
+*.pyc
+
+# Tokens / secretos
+companion/.env
+companion/.cache-spotify
+
+# Archivos locales y binarios que no hace falta versionar
+companion/nircmd.exe
+
+# Sistema
+.DS_Store
+Thumbs.db
+
