@@ -1,103 +1,122 @@
-<!doctype html><meta charset="utf-8">
-<title>Deck Lite</title>
-<style>
-  body { font-family: system-ui, sans-serif; margin:16px }
-  .top { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px }
-  input { padding:8px; font-size:14px; min-width:260px }
-  .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px }
-  button { padding:24px; font-size:18px; border-radius:12px; border:1px solid #ddd; cursor:pointer }
-  #st { font-weight:600 }
-</style>
+<!DOCTYPE html>
+<html lang="es">
 
-<div class="top">
-  <input id="ip" placeholder="IP del PC (ej. 192.168.100.35)" />
-  <input id="token" placeholder="token" />
-  <button id="btnConnect">Conectar</button>
-  <span id="st">desconectado</span>
-</div>
-
-<div class="grid">
-  <button onclick="send({type:'spotify',cmd:'toggle_play'})">▶/⏸ (SP)</button>
-  <button onclick="send({type:'spotify',cmd:'next'})">⏭ (SP)</button>
-  <button onclick="send({type:'spotify',cmd:'prev'})">⏮ (SP)</button>
-  <button onclick="send({type:'system',cmd:'volume_up'})">Vol +</button>
-  <button onclick="send({type:'system',cmd:'volume_down'})">Vol −</button>
-  <button onclick="send({type:'system',cmd:'mute_toggle'})">Mute</button>
-</div>
-
-<script>
-let ws, hbTimer, retryTimer, tries = 0;
-const st = document.getElementById('st');
-const ipEl = document.getElementById('ip');
-const tkEl = document.getElementById('token');
-const btn = document.getElementById('btnConnect');
-
-// Cargar últimos valores
-ipEl.value = localStorage.getItem('deck_ip') || '';
-tkEl.value = localStorage.getItem('deck_token') || '';
-
-btn.onclick = () => {
-  localStorage.setItem('deck_ip', ipEl.value.trim());
-  localStorage.setItem('deck_token', tkEl.value.trim());
-  connect(true);
-};
-
-function connect(manual=false){
-  clearTimeout(retryTimer); clearInterval(hbTimer);
-  const ip = ipEl.value.trim(), token = tkEl.value.trim();
-  if(!ip || !token){ alert('Completá IP y token'); return; }
-
-  const url = `ws://${ip}:8765/?token=${encodeURIComponent(token)}`;
-  ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    st.textContent = 'conectado';
-    tries = 0;
-    // Heartbeat cada 15s
-    hbTimer = setInterval(() => {
-      safeSend({type:'exec', action:{type:'ping'}});
-    }, 15000);
-  };
-
-  ws.onclose = () => {
-    st.textContent = 'desconectado';
-    clearInterval(hbTimer);
-    // Backoff exponencial (máx 15s)
-    const delay = Math.min(15000, 1000 * Math.pow(2, Math.min(5, tries++)));
-    retryTimer = setTimeout(() => connect(false), delay);
-  };
-
-  ws.onerror = () => {
-    st.textContent = 'error';
-  };
-
-  ws.onmessage = (ev) => {
-    // console.log('ACK:', ev.data);
-  };
-}
-
-function safeSend(payload){
-  try{
-    if(ws && ws.readyState === 1){
-      ws.send(JSON.stringify(payload));
+<head>
+  <meta charset="UTF-8" />
+  <title>StreamDeck Controller</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      text-align: center;
+      margin: 0;
+      padding: 1em;
     }
-  }catch(_){}
-}
 
-function send(action){
-  if(!ws || ws.readyState!==1){ alert('No conectado'); return; }
-  ws.send(JSON.stringify({type:'exec', action}));
-}
+    button {
+      display: inline-block;
+      margin: 0.5em;
+      padding: 1em 2em;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #444;
+      color: white;
+    }
 
-// Reintenta al volver al foco (por si el SO durmió la pestaña)
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (!ws || ws.readyState !== 1)) {
-    connect(false);
-  }
-});
+    button:hover {
+      background: #666;
+    }
 
-// Si teníamos datos guardados, intentá conectar automáticamente al cargar
-if(ipEl.value && tkEl.value){
-  connect(false);
-}
-</script>
+    #now-playing {
+      margin-top: 2em;
+      padding: 1em;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background: #222;
+      display: inline-block;
+      text-align: center;
+    }
+
+    #now-playing img {
+      max-width: 150px;
+      border-radius: 10px;
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>StreamDeck Controller</h1>
+
+  <div>
+    <button onclick="sendAction('spotify','toggle_play')">▶️ / ⏸</button>
+    <button onclick="sendAction('spotify','prev')">⏮</button>
+    <button onclick="sendAction('spotify','next')">⏭</button>
+  </div>
+
+  <div>
+    <button onclick="sendAction('system','volume_up')">🔊 Vol +</button>
+    <button onclick="sendAction('system','volume_down')">🔉 Vol -</button>
+    <button onclick="sendAction('system','mute_toggle')">🔇 Mute</button>
+  </div>
+
+  <div id="now-playing">
+    <h2>Now Playing</h2>
+    <img id="np-image" src="" alt="Album cover" style="display:none;" />
+    <p id="np-title">Título: -</p>
+    <p id="np-artist">Artista: -</p>
+    <p id="np-album">Álbum: -</p>
+    <p id="np-time">00:00 / 00:00</p>
+  </div>
+
+  <script>
+    const ws = new WebSocket("ws://" + location.hostname + ":8765/?token=1234");
+
+    ws.onopen = () => {
+      console.log("Conectado al servidor WS");
+    };
+
+    function formatTime(sec) {
+      if (!sec || sec < 0) return "00:00";
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    }
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("WS message:", data);
+
+      if (data.type === "now_playing") {
+        document.getElementById("np-title").textContent = "Título: " + (data.title || "-");
+        document.getElementById("np-artist").textContent = "Artista: " + (data.artist || "-");
+        document.getElementById("np-album").textContent = "Álbum: " + (data.album || "-");
+        document.getElementById("np-time").textContent = formatTime(data.progress) + " / " + formatTime(data.duration);
+
+        if (data.image) {
+          const img = document.getElementById("np-image");
+          img.src = data.image;
+          img.style.display = "block";
+        } else {
+          document.getElementById("np-image").style.display = "none";
+        }
+      }
+
+    };
+
+    ws.onclose = () => {
+      console.log("Conexión WS cerrada");
+    };
+
+    function sendAction(type, cmd) {
+      const action = { type, cmd };
+      ws.send(JSON.stringify({ type: "exec", action }));
+    }
+
+  </script>
+</body>
+
+</html>

@@ -7,21 +7,22 @@ from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 from keyboard import send as kb_send
 
 # Spotify
-import os
 from dotenv import load_dotenv
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 
 # ----- Config -----
-BASE_DIR = Path(r"D:\Programacion\StreamDeck")
-COMPANION_DIR = BASE_DIR / "companion"
+COMPANION_DIR = Path(__file__).resolve().parent
+BASE_DIR = COMPANION_DIR.parent
 PROFILES_PATH = COMPANION_DIR / "profiles.json"
 
 HOST = "0.0.0.0"
 PORT = 8765
-TOKEN = "1234"   # cámbialo si querés
+TOKEN = "1234"
 
 SPOTIFY: Spotify | None = None
+CLIENTS = set()   # lista de clientes conectados
+LAST_TRACK_ID = None
 
 # ----- Utils -----
 def log(*args):
@@ -31,14 +32,8 @@ def run_nircmd(*args) -> bool:
     try:
         subprocess.run(["nircmd.exe", *args], check=True)
         return True
-    except FileNotFoundError:
-        log("NirCmd no encontrado. ¿Está nircmd.exe junto a companion.py o en PATH?")
-        return False
-    except subprocess.CalledProcessError as e:
-        log("NirCmd devolvió error:", e)
-        return False
     except Exception as e:
-        log("NirCmd excepción:", e)
+        log("NirCmd error:", e)
         return False
 
 def load_profiles():
@@ -53,7 +48,7 @@ def load_profiles():
     else:
         log(f"[profiles.json] No existe -> {PROFILES_PATH}")
 
-# ----- Spotify helpers -----
+# ----- Spotify -----
 def init_spotify() -> Spotify:
     load_dotenv(dotenv_path=COMPANION_DIR / ".env")
     auth = SpotifyOAuth(
@@ -63,34 +58,47 @@ def init_spotify() -> Spotify:
         scope=os.getenv("SPOTIFY_SCOPES", "user-modify-playback-state user-read-playback-state"),
         cache_path=os.getenv("SPOTIFY_CACHE", ".cache-spotify")
     )
-    sp = Spotify(auth_manager=auth)
-    return sp
+    return Spotify(auth_manager=auth)
 
-def ensure_active_device(sp: Spotify) -> bool:
-    """
-    Garantiza que haya algún dispositivo activo.
-    Si no lo hay, intenta transferir la reproducción al primer device disponible.
-    Devuelve True si hay/queda activo; False si no.
-    """
+def get_now_playing(sp: Spotify) -> dict | None:
     try:
-        devices = sp.devices() or {}
-        devs = devices.get("devices", [])
-        if not devs:
-            log("Spotify: no hay dispositivos disponibles. Abrí Spotify en tu PC/celu y dale play una vez.")
-            return False
-        for d in devs:
-            if d.get("is_active"):
-                return True
-        first = devs[0]
-        did = first.get("id")
-        if did:
-            sp.transfer_playback(device_id=did, force_play=False)
-            log(f"Spotify: transferida sesión al dispositivo '{first.get('name')}'.")
-            return True
-        return False
+        track = sp.current_playback()
+        if track and track.get("item"):
+            item = track["item"]
+            progress = int(track.get("progress_ms", 0) / 1000)  # segundos actuales
+            duration = int(item.get("duration_ms", 0) / 1000)  # segundos totales
+            return {
+                "type": "now_playing",
+                "track_id": item.get("id"),
+                "title": item.get("name"),
+                "artist": ", ".join(a["name"] for a in item.get("artists", [])),
+                "album": item["album"]["name"] if item.get("album") else "",
+                "image": item["album"]["images"][0]["url"] if item.get("album", {}).get("images") else "",
+                "progress": progress,
+                "duration": duration
+            }
+        return None
     except Exception as e:
-        log("Spotify ensure_active_device error:", e)
-        return False
+        log("Error get_now_playing:", e)
+        return None
+
+async def broadcast_now_playing():
+    """Loop que chequea cambios de canción y los manda a todos los clientes"""
+    global LAST_TRACK_ID
+    while True:
+        await asyncio.sleep(3)  # cada 3 segundos
+        if SPOTIFY is None: 
+            continue
+        info = get_now_playing(SPOTIFY)
+        if info and info.get("track_id") != LAST_TRACK_ID:
+            LAST_TRACK_ID = info.get("track_id")
+            msg = json.dumps(info)
+            log("Nuevo track:", info.get("title"), "-", info.get("artist"))
+            for ws in list(CLIENTS):
+                try:
+                    await ws.send(msg)
+                except:
+                    CLIENTS.discard(ws)
 
 # ----- Acciones -----
 def execute_action(a: dict) -> bool:
@@ -99,12 +107,9 @@ def execute_action(a: dict) -> bool:
 
     if t == "spotify":
         if SPOTIFY is None:
-            log("Spotify no inicializado o sin tokens (.env/.cache-spotify).")
             return False
         cmd = a.get("cmd")
         try:
-            if not ensure_active_device(SPOTIFY):
-                return False
             if cmd == "toggle_play":
                 pb = SPOTIFY.current_playback()
                 if pb and pb.get("is_playing"):
@@ -119,24 +124,10 @@ def execute_action(a: dict) -> bool:
                 SPOTIFY.previous_track()
                 return True
             else:
-                log("Spotify cmd desconocido:", cmd)
                 return False
         except Exception as e:
             log("Error Spotify:", e)
             return False
-
-    if t == "media":
-        cmd = a.get("cmd")
-        mapping = {
-            "toggle_play": ["sendkeypress", "mediaplaypause"],
-            "next":        ["sendkeypress", "medianext"],
-            "prev":        ["sendkeypress", "mediaprevious"],
-        }
-        args = mapping.get(cmd)
-        if not args:
-            log("Media cmd desconocido:", cmd)
-            return False
-        return run_nircmd(*args)
 
     elif t == "system":
         cmd = a.get("cmd")
@@ -147,84 +138,46 @@ def execute_action(a: dict) -> bool:
         elif cmd == "mute_toggle":
             return run_nircmd("mutesysvolume", "2")
         else:
-            log("System cmd desconocido:", cmd)
             return False
 
-    elif t == "hotkey":
-        keys = a.get("keys", "")
-        try:
-            kb_send(keys)   # ^+m = Ctrl+Shift+M ; #l = Win+L
-            return True
-        except Exception as e:
-            log("Error enviando hotkey con keyboard:", e)
-            return False
-
-    elif t == "macro":
-        steps = a.get("steps", [])
-        try:
-            for s in steps:
-                st = s.get("type")
-                if st == "keys":
-                    kb_send(s.get("send", ""))
-                elif st == "enter":
-                    kb_send("{ENTER}")
-                elif st == "sleep":
-                    import time; time.sleep(float(s.get("sec", 0.1)))
-                else:
-                    log("Paso de macro desconocido:", st)
-            return True
-        except Exception as e:
-            log("Error ejecutando macro:", e)
-            return False
-
-    elif t == "ping":
-        # Heartbeat desde el cliente
-        return True
-
-    else:
-        log("Tipo de acción desconocido:", t)
-        return False
+    return False
 
 # ----- WS -----
 async def handle(ws):
-    # auth query
+    # auth
     q = {}
-    try:
-        raw_path = getattr(ws, "path", "") or ""
-        if "?" in raw_path:
-            qstring = raw_path.split("?", 1)[1]
-            for p in qstring.split("&"):
-                if "=" in p:
-                    k, v = p.split("=", 1)
-                    q[k] = v
-    except Exception:
-        pass
+    raw_path = getattr(ws, "path", "") or ""
+    if "?" in raw_path:
+        for p in raw_path.split("?", 1)[1].split("&"):
+            if "=" in p:
+                k, v = p.split("=", 1)
+                q[k] = v
 
     if q.get("token") != TOKEN:
         await ws.close(code=1008, reason="auth failed")
         return
 
     log("Cliente conectado.")
+    CLIENTS.add(ws)
+
     try:
         async for msg in ws:
             try:
                 data = json.loads(msg)
-                if data.get("type") != "exec":
-                    await ws.send(json.dumps({"type":"ack","ok":False,"err":"bad_type"}))
-                    continue
-                ok = execute_action(data.get("action", {}))
-                await ws.send(json.dumps({"type":"ack","ok":ok}))
+                if data.get("type") == "exec":
+                    ok = execute_action(data.get("action", {}))
+                    await ws.send(json.dumps({"type":"ack","ok":ok}))
             except Exception as e:
                 await ws.send(json.dumps({"type":"ack","ok":False,"err":str(e)}))
-    except (ConnectionClosedOK, ConnectionClosedError) as e:
-        log("Cliente desconectado:", repr(e))
-    except Exception as e:
-        log("Handler error (no crítico):", repr(e))
+    except (ConnectionClosedOK, ConnectionClosedError):
+        pass
     finally:
-        log("Conexión finalizada.")
+        CLIENTS.discard(ws)
+        log("Cliente desconectado.")
 
+# ----- Main -----
 async def main():
-    os.chdir(COMPANION_DIR)  # asegurar cwd
+    os.chdir(COMPANION_DIR)
     log(f"Carpeta actual: {os.getcwd()}")
     load_profiles()
 
@@ -236,18 +189,14 @@ async def main():
         log("Spotify no se inicializó:", e)
 
     log(f"WS en ws://0.0.0.0:{PORT}/?token={TOKEN}")
-    async with serve(
-        handle, HOST, PORT,
-        ping_interval=20, ping_timeout=20,
-        close_timeout=3, max_queue=None
-    ):
-        await asyncio.Future()
+    async with serve(handle, HOST, PORT):
+        await asyncio.gather(
+            broadcast_now_playing(),  # loop de actualización automática
+            asyncio.Future()          # mantener vivo el server
+        )
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         sys.exit(0)
-    except Exception as e:
-        print("CRASH EN ARRANQUE:", e)
-        input("Presione ENTER para cerrar...")
