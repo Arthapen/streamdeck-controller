@@ -415,6 +415,23 @@ function toggleMenu() {
     document.getElementById("widget-menu").classList.toggle("open");
 }
 
+function toggleFullscreen() {
+    toggleMenu(); // Close menu
+    let doc = window.document;
+    let docEl = doc.documentElement;
+
+    let requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+    let cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+    if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+        requestFullScreen.call(docEl).catch(err => {
+            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+        cancelFullScreen.call(doc);
+    }
+}
+
 let deleteMode = false;
 function toggleDeleteMode() {
     deleteMode = !deleteMode;
