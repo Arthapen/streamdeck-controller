@@ -31,6 +31,10 @@ class CompanionServer:
             cmd = action.get("cmd")
             if cmd == "volume":
                 set_volume(int(action.get("val", 50)))
+            elif cmd == "volume_up":
+                SystemController.change_volume_relative(5)
+            elif cmd == "volume_down":
+                SystemController.change_volume_relative(-5)
             elif cmd == "mute" or cmd == "mute_toggle":
                 toggle_mute()
             elif cmd == "lock" or cmd == "lock_workstation" or cmd == "lock_pc":

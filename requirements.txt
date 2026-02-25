@@ -1,0 +1,4 @@
+websockets>=11.0.3
+pycaw>=20230407
+comtypes>=1.2.0
+python-dotenv>=1.0.0

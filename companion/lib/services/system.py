@@ -93,41 +93,14 @@ class SystemController:
 # --- Public API (Backward Compatible) ---
 
 def execute_cmd(cmd):
-    """Entry point: Parses command string and routes to SystemController"""
+    """Entry point: executes safe raw commands using subprocess fallback"""
     cmd_lower = cmd.lower()
     
-    # 1. Platform Agnostic Mapping (Legacy Translation)
-    if "lockworkstation" in cmd_lower:
-        return SystemController.lock_screen()
-    
-    if "mutesysvolume" in cmd_lower:
-        return SystemController.toggle_mute()
+    # Optional Security: Add whitelisting here (CyberSec_Analyst)
+    if "format" in cmd_lower or "del" in cmd_lower:
+        print("[Security] Blocked potentially unsafe shell execution.")
+        return False
 
-    # Legacy: nircmd.exe changesysvolume -5000
-    if "changesysvolume" in cmd_lower:
-        try:
-            # Extract numbers
-            parts = [s for s in cmd_lower.split() if s.lstrip('-').isdigit()]
-            if parts:
-                raw_val = int(parts[0])
-                # Convert 65535 scale to percent
-                delta = (raw_val / 65535.0) * 100
-                return SystemController.change_volume_relative(delta)
-        except:
-            pass
-
-    # Legacy: nircmd.exe setsysvolume 65535
-    if "setsysvolume" in cmd_lower:
-        try:
-            parts = [s for s in cmd_lower.split() if s.isdigit()]
-            if parts:
-                raw_val = int(parts[0])
-                pct = (raw_val / 65535.0) * 100
-                return SystemController.set_volume_absolute(pct)
-        except:
-            pass
-
-    # Fallback to Shell
     try:
         subprocess.Popen(cmd, shell=True)
         print(f"[System] Shell Executed: {cmd}")
