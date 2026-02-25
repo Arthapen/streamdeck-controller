@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>StreamDeck Pro</title>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- GridStack CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/7.2.3/gridstack.min.css" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+
+    <!-- Floating Status Indicator -->
+    <div id="conn-status"></div>
+
+    <!-- Back Button (Hidden by default) -->
+    <div id="back-btn" onclick="goBack()"
+        style="display: none; position: fixed; top: 25px; left: 25px; z-index: 1000; cursor: pointer;">
+        <div
+            style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 12px 20px; border-radius: 30px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.1);">
+            <i class="fa-solid fa-arrow-left" style="color: white; font-size: 1.2rem;"></i>
+            <span style="color: white; font-weight: 600;">Back</span>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid-stack"></div>
+
+    <!-- WIDGET STORE (FAB) -->
+    <div class="fab-container">
+        <div class="widget-menu" id="widget-menu">
+            <div class="menu-item" onclick="addWidget('cpu')"><i class="fa-solid fa-microchip"></i> Add CPU Gauge</div>
+            <div class="menu-item" onclick="addWidget('ram')"><i class="fa-solid fa-memory"></i> Add RAM Gauge</div>
+            <div class="menu-item" onclick="addWidget('temp')"><i class="fa-solid fa-temperature-half"></i> Add Temp
+                Gauge</div>
+            <div class="menu-item" onclick="addWidget('spotify')"><i class="fa-brands fa-spotify"></i> Add Spotify</div>
+            <div class="menu-item" onclick="addWidget('reset_layout')"><i class="fa-solid fa-arrows-rotate"></i> Reset
+                Layout</div>
+            <div class="menu-item danger" onclick="addWidget('delete_mode')"><i class="fa-solid fa-trash"></i> Delete
+                Widgets</div>
+        </div>
+        <button class="fab-btn" onclick="toggleMenu()"><i class="fa-solid fa-plus"></i></button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/7.2.3/gridstack-all.min.js"></script>
+    <!-- App Logic -->
+    <script src="js/app.js?v=10"></script>
+</body>
+
+</html>

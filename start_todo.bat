@@ -54,7 +54,7 @@ start "StreamDeck Companion" cmd /k ^
 
 REM Web server en ventana propia (queda abierta siempre)
 start "StreamDeck Web" cmd /k ^
- "cd /d %WEB% && python -m http.server 8080 & echo. & echo [Web] Presione una tecla para cerrar esta ventana... & pause >nul"
+ "cd /d %WEB% && python -m http.server 8080 --bind 0.0.0.0 & echo. & echo [Web] Presione una tecla para cerrar esta ventana... & pause >nul"
 
 timeout /t 2 >nul
 start "" http://localhost:8080/client.html

@@ -1,0 +1,1 @@
+# Placeholder futuro: funciones para controlar media con NirCmd/WinAPI.
