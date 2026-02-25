@@ -15,7 +15,15 @@ class ProfileManager:
     def load_profile(self, device_id):
         path = self.get_profile_path(device_id)
         if not path.exists():
-            # Return empty default struct
+            if os.path.exists(self.default_profile):
+                try:
+                    with open(self.default_profile, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    migrated = self._migrate(data, path)
+                    self.save_raw_profile(path, migrated)
+                    return migrated
+                except Exception as e:
+                    print(f"[Profile] Error loading default config: {e}")
             return {"rootPage": "home", "pages": {"home": []}}
             
         try:

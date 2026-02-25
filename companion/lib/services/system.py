@@ -37,8 +37,7 @@ class SystemController:
         try:
             if sys.platform == "win32":
                 devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = interface.QueryInterface(IAudioEndpointVolume)
+                volume = devices.EndpointVolume
                 
                 val = max(0.0, min(1.0, percent / 100.0))
                 volume.SetMasterVolumeLevelScalar(val, None)
@@ -60,8 +59,7 @@ class SystemController:
         try:
             if sys.platform == "win32":
                 devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = interface.QueryInterface(IAudioEndpointVolume)
+                volume = devices.EndpointVolume
                 
                 current = volume.GetMasterVolumeLevelScalar()
                 new_val = max(0.0, min(1.0, current + (delta_percent / 100.0)))
@@ -79,8 +77,7 @@ class SystemController:
         try:
             if sys.platform == "win32":
                 devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = interface.QueryInterface(IAudioEndpointVolume)
+                volume = devices.EndpointVolume
                 
                 is_muted = volume.GetMute()
                 volume.SetMute(not is_muted, None)

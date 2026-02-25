@@ -5,19 +5,19 @@
         "id": "spotify_main",
         "type": "spotify",
         "title": "Spotify",
-        "x": 0,
+        "x": 5,
         "y": 0,
-        "w": 12,
-        "h": 4
+        "w": 5,
+        "h": 5
       },
       {
         "id": "quick_actions",
         "type": "grid",
         "title": "Sistema",
         "x": 0,
-        "y": 4,
-        "w": 11,
-        "h": 4,
+        "y": 0,
+        "w": 5,
+        "h": 6,
         "buttons": [
           {
             "id": "open_chrome",
@@ -68,38 +68,6 @@
             }
           }
         ]
-      }
-    ],
-    "utilities": [
-      {
-        "id": "cpu_gauge",
-        "type": "gauge",
-        "metric": "cpu",
-        "label": "CPU Load",
-        "x": 0,
-        "y": 0,
-        "w": 4,
-        "h": 2
-      },
-      {
-        "id": "ram_gauge",
-        "type": "gauge",
-        "metric": "ram",
-        "label": "RAM Usage",
-        "x": 4,
-        "y": 0,
-        "w": 4,
-        "h": 2
-      },
-      {
-        "id": "temp_gauge",
-        "type": "gauge",
-        "metric": "temp",
-        "label": "CPU Temp",
-        "x": 8,
-        "y": 0,
-        "w": 4,
-        "h": 2
       }
     ]
   },
